@@ -10,7 +10,7 @@ test_instrument:
   load:
     path: "COM9" 
   power_supply: 
-    path: "COM13"
+    path: "COM14"
 DUT:
   device_name: Aggragator Project
   input: 
@@ -32,6 +32,6 @@ DUT:
       max_load: 1.5
       sequence_check: true
 testboard:
-  port: 'COM10'
+  port: 'COM7'
   voltage_supply: 5 #V
   current_supply: 1 #A maximum

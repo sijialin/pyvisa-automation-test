@@ -67,8 +67,6 @@ class ElectronicLoad:
     def get_current_current(self):
         return float((self.query(":MEAS:CURR?")).rstrip('A'))
 
-
-
     def switch(self,v):
         if v==0:
             #print("Turn off load output")     

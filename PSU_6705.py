@@ -1,15 +1,13 @@
 #!/usr/bin/env python
 # coding: utf-8
-
 # In[ ]:
-
 
 import serial
 import struct
 import time
 from typing import Literal
 
-#written for hightech 6705 dc power supply
+#Written for hightech 6705 dc power supply
 class PSU_6705:
     def __init__(self, port):
         self.ser = serial.Serial(port, 9600)
@@ -27,24 +25,24 @@ class PSU_6705:
         if self.ser.isOpen():
             print("DC Power Supply 6705 at serial " + port + " is open")
     
-    def get_IDN():
-        return "PeakTech 6705 DC Power Supply"
-
     def close(self):
         self.ser.close()
         print("Serial close.")
     
     def write(self):
         self.ser.write()
-    
+
+    def read(self,len):
+        self.ser.read(len)
+
     def status_inquire(self):
         self.ser.flushInput()
         query_command='0xF702030409E2ABFD'
         query_command = bytes.fromhex(query_command[2:])
-        self.ser.write(query_command)
+        self.write(query_command)
         data_list=[]
         for _ in range(26):            
-            byte_data = self.ser.read(1)  
+            byte_data = self.read(1)  
             data_list.append(byte_data)
         #TODO complete this part
         #D5: CH1 Status：BIT0 CV 、BIT1 CC 、BIT2 SER、BIT3 PAR 、BIT5 OUTPUT
@@ -71,6 +69,74 @@ class PSU_6705:
         #for attr_name in self.__dict__:
         #    print(attr_name, ":", getattr(self, attr_name))
         return self.__dict__
+       
+    def set_value(self,channel,type,value):
+        start_command='0xF7020a'
+        c=''
+        input_check=True
+        if(channel==1):
+            if(type=='v'or type=='V'):
+                c='0901'+self.dec_to_hex(value,100).hex()+'2f55'
+            elif(type=='c'or type=='C'):
+                c='0a01'+self.dec_to_hex(value,1000).hex()+'8a56'
+            else:
+                print("wrong input")
+                input_check=False
+        elif(channel==2):
+            if(type=='v'or type=='V'):
+                c='0b01'+self.dec_to_hex(value,100).hex()+'0155'
+            elif(type=='c'or type=='C'):
+                c='0c01'+self.dec_to_hex(value,1000).hex()+'c855'
+            else:
+                input_check=False
+        else:
+            input_check=False
+        if input_check==True:
+            hex_command=start_command+c+'fd'
+            byte_command = bytes.fromhex(hex_command[2:])
+            self.write(byte_command)
+           
+        else:
+            print("Set failed, wrong input")
+    
+    def switch_output(self,v):
+        start_command='0xF7020a1e01000'
+        c=''
+        if v==0:
+            print("Turn off output")
+            c='0'
+        else:
+            print("Turn on output")
+            c='1'
+        hex_command=start_command+c+'0492fd'
+        byte_command = bytes.fromhex(hex_command[2:])
+        self.write(byte_command)
+    
+    def on(self):
+        command="0xF7020a1e0100010492fd"
+        byte_command = bytes.fromhex(command[2:])
+        self.write(byte_command)
+
+    def off(self):
+        command="0xF7020a1e0100000492fd"
+        byte_command = bytes.fromhex(command[2:])
+        self.write(byte_command)       
+
+    def set_connection(self,connection:Literal['Series','Parallel','Cancel']):
+        byte_command = 0
+        set_series_command="0xF7020A1F010001F893FD"
+        set_parallel_command="0xF7020A1F010002f9d3FD"
+        series_parallel_cancel_command="0xF7020A1F0100003852FD"
+        if connection=='Parallel':
+            byte_command = bytes.fromhex(set_parallel_command[2:])
+        elif connection=='Series':
+            byte_command = bytes.fromhex(set_series_command[2:])
+        else:
+            byte_command = bytes.fromhex(series_parallel_cancel_command[2:])
+        self.write(byte_command)
+
+    def get_IDN(self):
+        return "PeakTech DC POWER SUPPLY 6075"
         
     def dec_to_hex(self,dec,mul):
         dec=dec*mul
@@ -84,78 +150,5 @@ class PSU_6705:
         value = int_integer * 256 + int_decimal
         value = value / deg
         return value
-        
-    def set_value(self,channel,type,value):
-        start_command='0xF7020a'
-        c=''
-        input_check=True
-        if(channel==1):
-            if(type=='v'or type=='V'):
-                c='0901'+self.dec_to_hex(value,100).hex()+'2f55'
-            elif(type=='c'or type=='C'):
-                c='0a01'+self.dec_to_hex(value,1000).hex()+'8a56'
-            else:
-                print("wrong input")
-                input_check=False
-
-        elif(channel==2):
-            if(type=='v'or type=='V'):
-                c='0b01'+self.dec_to_hex(value,100).hex()+'0155'
-            elif(type=='c'or type=='C'):
-                c='0c01'+self.dec_to_hex(value,1000).hex()+'c855'
-            else:
-                input_check=False
-        else:
-            input_check=False
-        if input_check==True:
-            hex_command=start_command+c+'fd'
-            byte_command = bytes.fromhex(hex_command[2:])
-            self.ser.write(byte_command)
-            #print(hex_command)
-            time.sleep(0.1)
-        else:
-            print("Set failed, wrong input")
-    
-    def switch_output(self,v):
-        start_command='0xF7020a1e01000'
-        on_command='0xF7020a1e0100010492fd'
-        off_command='0xF7020a1e0100000492fd'
-        c=''
-        if v==0:
-            print("Turn off output")
-            c='0'
-
-        else:
-            print("Turn on output")
-            c='1'
-        hex_command=start_command+c+'0492fd'
-        byte_command = bytes.fromhex(hex_command[2:])
-        self.ser.write(byte_command)
-        #print(self.ser.read(10).hex())
-    
-    def on(self):
-        command="0xF7020a1e0100010492fd"
-        byte_command = bytes.fromhex(command[2:])
-        self.ser.write(byte_command)
-    def off(self):
-        command="0xF7020a1e0100000492fd"
-        byte_command = bytes.fromhex(command[2:])
-        self.ser.write(byte_command)       
-
-    def set_connection(self,connection:Literal['Series','Parallel','Cancel']):
-        byte_command = 0
-        set_series_command="0xF7020A1F010001F893FD"
-        set_parallel_command="0xF7020A1F010002f9d3FD"
-        series_parallel_cancel_command="0xF7020A1F0100003852FD"
-        if connection=='Parallel':
-            byte_command = bytes.fromhex(set_parallel_command[2:])
-        elif connection=='Series':
-            byte_command = bytes.fromhex(set_series_command[2:])
-        else:
-            byte_command = bytes.fromhex(series_parallel_cancel_command[2:])
-        self.ser.write(byte_command)
-
-    def get_IDN(self):
-        return "PeakTech DC POWER SUPPLY 6075"
-
+ 
 

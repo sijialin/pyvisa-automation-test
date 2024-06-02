@@ -2,25 +2,13 @@
 # coding: utf-8
 
 # In[1]:
-
 #This is wriiten based on Tektronix DPO4000 series Digital Oscilloscopes
-
 import matplotlib.pyplot as plt
 import pyvisa as visa
 import time
 import numpy as np
 #from scipy.interpolate import interp1d
 from typing import Literal
-
-
-
-# class DPO4000Series(Oscilloscope):
-#     def __init__(self, model):
-#         super().__init__(model)
-# 
-
-# In[ ]:
-
 
 class Oscilloscope:
     def __init__(self,oscilloscope_path,channel_num=4):
@@ -31,7 +19,6 @@ class Oscilloscope:
         self.scope.write_termination = None
         self.channel_number=channel_num
         self.scope.timeout=10000
-        #print(f"{self.scope.query('*IDN?')}")
 
     def query(self, command):
         return self.scope.query(command)
@@ -42,9 +29,26 @@ class Oscilloscope:
     def read(self, command):
         return self.scope.read(command)
     
-    def autoset(self):
-        self.write("AUTOset EXECUTE")
-        
+    '''
+    Acquisition Command Group
+    '''
+    def set_acquire_mode(self,mode:Literal['SAMple', 'PEAKdetect', 'HIRes', 'AVErage', 'ENVelope']):
+       self.write(f"ACQUIRE:MODE {mode}")
+
+    def get_acquire_mode(self):
+       self.write(f"ACQUIRE:MODE?")
+    '''
+    Horizontal Command Group
+    '''
+    def set_t_scale(self,new_scale):
+        self.write(f'HORizontal:SCALE {new_scale}') 
+
+    def get_t_scale(self):
+        return float(self.query(f'HORizontal:SCALE?')) 
+
+    '''
+    Measurement Command Group
+    '''
     def add_measurement(self,index,channel,TYPe:Literal['AMPlitude','AREa','BURst','CARea','CMEan','CRMs','DELay','DISTDUty',
                                                         'EXTINCTDB','EXTINCTPCT','EXTINCTRATIO','EYEHeight','EYEWidth','FALL',
                                                         'FREQuency','HIGH','HITs','LOW','MAXimum','MEAN','MEDian','MINImum','NCROss','NDUty',
@@ -55,26 +59,15 @@ class Oscilloscope:
                                                         ,src2=None):
         self.write(f"SELECT: CH{channel} ON")
         time.sleep(0.05)
-        self.write(f"MEASUREMENT:MEAS{index}:SOURCE1 CH{channel}")
-        time.sleep(0.05)
+        self.write(f"MEASUREMENT:MEAS{index}:SOURCE1 CH{channel}")  
         self.write(f"MEASUREMENT:MEAS{index}:TYPe {TYPe}")
-        time.sleep(0.05)
         self.write(f"MEASUREMENT:MEAS{index}:STATE ON")
-        time.sleep(0.05)
         if src2!=None:
             self.write(f"MEASUREMENT:MEAS{index}:SOURCE2 CH{src2}")
-        
+
     def get_measurement(self,index:Literal[1,2,3,4],value:Literal['MEAN','MINImum','MAXimum','STDdev','VALue']='VALUE'):
         return float(self.query(f"MEASUREMENT:MEAS{index}:{value}?"))
-    
-    def set_coupling(self,channel:Literal[1,2,3,4],mode):
-        command = f"CH{channel}:COUPLING {mode.upper()}"
-        self.write(command)
 
-    def set_bandwidth(self,channel:Literal[1,2,3,4],mode:Literal['TWEnty','TWOfifty','FULl']):
-        command = f"CH{channel}:BANDWIDTH {mode.upper()}"#{|<NR3>}
-        self.write(command)
-    
     def get_immed_value(self,channel:Literal[1,2,3,4],TYPe:Literal['AMPlitude','AREa','BURst','CARea','CMEan','CRMs','DELay','DISTDUty','EXTINCTDB','EXTINCTPCT',
                                           'EXTINCTRATIO','EYEHeight','EYEWidth','FALL','FREQuency','HIGH','HITs','LOW','MAXimum','MEAN',
                                           'MEDian','MINImum','PCROss','PCTCROss','PDUty','PEAKHits','PERIod','PHAse','PK2Pk','PKPKJitter',
@@ -84,10 +77,68 @@ class Oscilloscope:
         self.write(f"MEASUrement:IMMed:TYPe {TYPe}")
         self.write(f"MEASUrement:IMMed:SOURCE CH{channel}")
         return float(self.query(f"MEASUrement:IMMed:Value?"))
-    
+
+    def set_measurement_source(self,meas_index,channel):
+        self.write(f"MEASUrement:MEAS{meas_index}:SOURCE CH{channel}")
+
+    '''
+    Miscellaneous Command Group
+    '''
+    def autoset(self):
+        self.write("AUTOset EXECUTE")
+        
     def get_IDN(self):
-        return self.query("*IDN?")
+        return self.query("*IDN?")    
+
+    '''
+    Trigger Command Group
+    '''
+    def set_trigger_a_edge_coupling(self,coupling:Literal['AC','DC','HFRej','LFRej','NOISErej']) :
+        self.write(f"TRIGger:A:EDGE:COUPling {coupling}")   
+
+    def get_trigger_a_edge_coupling(self) :
+        return self.query(f"TRIGger:A:EDGE:COUPling?")  
     
+    def set_trigger_a_edge_slope(self,slope:Literal['RISe','FALL']):
+        self.write(f"TRIGGER:A:EDGE:SLOPE {slope}")
+
+    def get_trigger_a_edge_slope(self):
+        self.query(f"TRIGGER:A:EDGE:SLOPE?")   
+    
+    def set_trigger_a_edge_source(self,channel:Literal[1,2,3,4]):
+        self.write(f"TRIGGER:A:EDGE:SOURCE CH{channel}")
+
+    def get_trigger_a_edge_source(self):
+        self.query("TRIGGER:A:EDGE:SOURCE?")
+    '''
+    Vertical Command Group
+    '''
+    def set_bandwidth(self,channel:Literal[1,2,3,4],mode:Literal['TWEnty','TWOfifty','FULl']):
+        command = f"CH{channel}:BANDWIDTH {mode.upper()}"#{|<NR3>}
+        self.write(command)
+
+    def set_coupling(self,channel:Literal[1,2,3,4],mode):
+        command = f"CH{channel}:COUPLING {mode.upper()}"
+        self.write(command)
+
+    def set_offset(self,channel,value):
+        self.write(f'CH{channel}:OFFSET {value}') 
+
+    def set_y_scale(self,channel,value):
+        self.write(f'CH{channel}:SCALE {value}') 
+    
+    def get_y_scale(self,channel):
+        return float(self.query(f'CH{channel}:SCALE?'))
+
+    def channel_on(self,channel):
+       self.write(f"SELECT:CH{channel} ON") 
+
+    def channel_off(self,channel):
+       self.write(f"SELECT:CH{channel} OFF")  
+
+    '''
+    Waveform Transfer Command Group
+    '''
     def get_waveform(self,channel:Literal[1,2,3,4],plot_title=None):
         self.write(f"DATA:SOURCE CH{channel}")
         self.write("DATA:ENCdg ASCII")      
@@ -110,11 +161,9 @@ class Oscilloscope:
 
         display_t_scale=float(self.query('HORIZONTAL:SCALE?'))
         display_t_scale,tunit,factor=self.convert_time_scale(display_t_scale)
-
         display_v_scale=float(self.query(f'CH{channel}:SCALE?'))
         display_v_scale,vunit,factor_v=self.convert_voltage_scale(display_v_scale)
 
-        
         scaled_wave = (unscaled_wave - vpos) * vscale + voff
         time_space=unscaled_ts*factor 
         dispay_wave=scaled_wave*factor_v
@@ -132,7 +181,7 @@ class Oscilloscope:
             plt.title(plot_title)
         plt.show()
         return scaled_wave,unscaled_ts,plt.gcf()
-
+    
     def get_waveform_data(self,channel):
         command = f"DATA:SOURCE CH{channel}"
         self.write(command)
@@ -152,9 +201,7 @@ class Oscilloscope:
         unscaled_wave = np.array(bin_wave, dtype='double')
         scaled_wave = (unscaled_wave - vpos) * vscale + voff
         return scaled_wave,time_space
-
-    def get_y_scale(self,channel):
-        return float(self.query(f'CH{channel}:SCALE?'))
+    
     def get_waveform_all(self):
         active_channel_list=[]
         #Detect channel in use
@@ -176,7 +223,6 @@ class Oscilloscope:
             display_v_scale=float(self.query(f'CH{channel}:SCALE?'))
             wave_data_list.append((channel,unscaled_wave,display_v_scale,scaled_wave))
           
-
         tunit=self.query("WFMOUTPRE:xunit?")
         record = int(self.query('WFMOUTPRE:nr_pt?'))
               
@@ -203,23 +249,60 @@ class Oscilloscope:
         plt.show()
         return wave_data_list,time_space,plt.gcf()
 
+    '''
+    Self defined commands
+    '''
+    def get_channel_number(self):
+        return 4
 
-    def set_y_scale(self,channel,value):
-        self.write(f'CH{channel}:SCALE {value}') 
+    def nearest_v_scale(self,value):
+        scales = [0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10, 20]
+        min_diff = float('inf')
+        nearest_v_scale = 0.001
+        for scale in scales:
+            diff = value/2 - scale
+            if diff >= 0 and diff < min_diff:
+                min_diff = diff
+                nearest_v_scale = scale
+        return nearest_v_scale
     
-    def set_offset(self,channel,value):
-        self.write(f'CH{channel}:OFFSET {value}') 
-
-    def set_t_scale(self,new_scale):
-        self.write(f'HORizontal:SCALE {new_scale}') 
-    def get_t_scale(self):
-        return float(self.query(f'HORizontal:SCALE?')) 
-
-
+    def nearest_t_scale(self,value):
+        scales = [1, 2, 4]
+        powers = [-9, -8, -7, -6, -5, -4, -3,-2,-1,0] 
+        nearest_diff = float('inf')
+        nearest_t_scale = None
+        for scale in scales:
+            for power in powers:
+                scale_value = scale * 10 ** power
+                diff = abs(value - scale_value)
+                if diff < nearest_diff:
+                    nearest_diff = diff
+                    nearest_t_scale = scale_value
+        return nearest_t_scale
+    
+    def auto_range_vertical(self,channel:Literal[1,2,3,4],reference:Literal['MEAN','PK2PK']='MEAN'):
+        time.sleep(0.2)
+        new_v_scale=self.nearest_v_scale( self.get_immed_value(channel,reference)/2 if reference=='PK2PK' else self.get_immed_value(channel,reference))  
+        v=self.get_immed_value(channel,reference)
+        current_v_scale=self.get_y_scale(channel)
+        while (current_v_scale!=new_v_scale):
+            self.set_y_scale(channel,new_v_scale)
+            time.sleep(0.2)
+            current_v_scale=new_v_scale
+            new_v_scale=self.nearest_v_scale(self.get_immed_value(channel,reference)/2 if reference=='PK2PK' else self.get_immed_value(channel,reference)) 
+            v=self.get_immed_value(channel,reference)
+        
+    def auto_range_horizontal(self,channel):
+        new_t_scale=self.nearest_t_scale( 1/self.get_frequency(channel))  
+        current_t_scale=self.get_t_scale()
+        while (current_t_scale!=new_t_scale):
+            self.set_t_scale(new_t_scale)
+            time.sleep(0.1)
+            current_t_scale=new_t_scale
+            new_t_scale=self.nearest_t_scale(1/self.get_frequency(channel))
 
     def get_frequency(self,channel,fft=False,fig=False):
         math=fft
-        #print("take  average!")
         if not fft:
             fre=[]
             for i in range(3):   
@@ -236,12 +319,9 @@ class Oscilloscope:
         if math:
             wave,t=self.get_waveform_data(channel)
             tscale = float(self.query("WFMoutpre:XINcr?"))        
-            record = int(self.query('WFMoutpre:nr_pt?'))
-                        
-            total_time = tscale * record
-          
-            time_space=np.linspace(0,total_time,num=record,endpoint=False)
-                
+            record = int(self.query('WFMoutpre:nr_pt?'))                     
+            total_time = tscale * record          
+            time_space=np.linspace(0,total_time,num=record,endpoint=False)               
             # fft
             fft_result = np.fft.fft(wave)
             freqs = np.fft.fftfreq(len(wave), tscale)
@@ -252,7 +332,6 @@ class Oscilloscope:
             for index in sorted_indices[:num]:
                 peaks.append((freqs[index], fft_result[index]))
             main_freq = abs(min([freq for freq, _ in peaks]))
-
             if fig:
                 for i, (freq, amp) in enumerate(peaks):
                     print(f"peak {i+1} freq {freq} Hz")
@@ -278,6 +357,7 @@ class Oscilloscope:
             return scale * 1e6, 'us',1e6
         else:
             return scale*1e9, 'ns',1e9
+        
     def convert_voltage_scale(self,scale):
         if  scale >= 1e-2:
             return scale, 'V',1
@@ -285,6 +365,7 @@ class Oscilloscope:
             return scale * 1e3, 'mV',1e3
         else:
             return scale * 1e6, 'uV',1e6
+        
     def conver_freq_scale(self,freq):
         if freq>1E6:
             return freq/1000000.00,'MHz'
@@ -317,80 +398,5 @@ class Oscilloscope:
         plt.annotate(f'{smooth_min:.4f}V', (t[len(t)//2], smooth_min), textcoords="offset points", xytext=(0,0), ha='center', fontsize=8, color='r')
         plt.show()
         return vpp
-    def channel_on(self,channel):
-       self.write(f"SELECT:CH{channel} ON")    
-    def channel_off(self,channel):
-       self.write(f"SELECT:CH{channel} OFF")    
-
-    def set_acquire_mode(self,mode:Literal['SAMple', 'PEAKdetect', 'HIRes', 'AVErage', 'ENVelope']):
-       self.write(f"ACQUIRE:MODE {mode}")
-    def get_acquire_mode(self):
-       self.write(f"ACQUIRE:MODE?")
-       
-    def set_trigger_a_edge_source(self,channel:Literal[1,2,3,4]):
-        self.write(f"TRIGGER:A:EDGE:SOURCE CH{channel}")
-    def get_trigger_a_edge_source(self):
-        self.query("TRIGGER:A:EDGE:SOURCE?")
-    def set_trigger_a_edge_slope(self,slope:Literal['RISe','FALL']):
-        self.write(f"TRIGGER:A:EDGE:SLOPE {slope}")
-    def set_trigger_a_edge_slope(self):
-        self.query(f"TRIGGER:A:EDGE:SLOPE?")   
-    def get_channel_number(self):
-        return 4
-    def set_trigger_a_edge_coupling(self,coupling:Literal['AC','DC','HFRej','LFRej','NOISErej']) :
-        self.write(f"TRIGger:A:EDGE:COUPling {coupling}")   
-    def get_trigger_a_edge_coupling(self) :
-        return self.query(f"TRIGger:A:EDGE:COUPling?")   
-
-    def set_measurement_source(self,meas_index,channel):
-        self.write(f"MEASUrement:MEAS{meas_index}:SOURCE CH{channel}")
-
-    def nearest_v_scale(self,value):
-        scales = [0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10, 20]
-        min_diff = float('inf')
-        nearest_v_scale = 0.001
-        for scale in scales:
-            diff = value/2 - scale
-            if diff >= 0 and diff < min_diff:
-                min_diff = diff
-                nearest_v_scale = scale
-        return nearest_v_scale
-    
-    def nearest_t_scale(self,value):
-        scales = [1, 2, 4]
-        powers = [-9, -8, -7, -6, -5, -4, -3,-2,-1,0] 
-        nearest_diff = float('inf')
-        nearest_t_scale = None
-        for scale in scales:
-            for power in powers:
-                scale_value = scale * 10 ** power
-                diff = abs(value - scale_value)
-                if diff < nearest_diff:
-                    nearest_diff = diff
-                    nearest_t_scale = scale_value
-        return nearest_t_scale
-    
-
-    def auto_range_vertical(self,channel:Literal[1,2,3,4],reference:Literal['MEAN','PK2PK']='MEAN'):
-            time.sleep(0.2)
-            new_v_scale=self.nearest_v_scale( self.get_immed_value(channel,reference)/2 if reference=='PK2PK' else self.get_immed_value(channel,reference))  
-            v=self.get_immed_value(channel,reference)
-            current_v_scale=self.get_y_scale(channel)
-            while (current_v_scale!=new_v_scale):
-                self.set_y_scale(channel,new_v_scale)
-                time.sleep(0.2)
-                current_v_scale=new_v_scale
-                new_v_scale=self.nearest_v_scale(self.get_immed_value(channel,reference)/2 if reference=='PK2PK' else self.get_immed_value(channel,reference)) 
-                v=self.get_immed_value(channel,reference)
-        
-    def auto_range_horizontal(self,channel):
-        new_t_scale=self.nearest_t_scale( 1/self.get_frequency(channel))  
-        current_t_scale=self.get_t_scale()
-        while (current_t_scale!=new_t_scale):
-            self.set_t_scale(new_t_scale)
-            time.sleep(0.1)
-            current_t_scale=new_t_scale
-            new_t_scale=self.nearest_t_scale(1/self.get_frequency(channel))
-
-       # %%
+    # %%
        

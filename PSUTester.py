@@ -1,8 +1,6 @@
 #!/usr/bin/env python
 # coding: utf-8
-
 # In[2]:
-
 #BY Sijia Lin 
 import time
 import matplotlib.pyplot as plt
@@ -11,13 +9,11 @@ import yaml
 import csv
 import os
 from datetime import datetime
-import logging
 
 from Oscilloscope import *
 from PSU_6705 import *
 from ElectronicLoad import *
 from TestBoard import *
-
 
 class PSUTester:
     def __init__(self, config_file):
@@ -28,32 +24,26 @@ class PSUTester:
         self.config=0  
         self.folder_path=0 
 
-        logging.basicConfig(level=logging.DEBUG,  
-                            format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',  
-                            handlers=[logging.FileHandler("app.log"),  
-                                    logging.StreamHandler()])  
-        self.logger=logging.getLogger(__name__)
-
-        #read configurations from .YAML
+        #read configurations from .YAML, create folder for saving data
         self.file_config(config_file) 
         #Configure instruments 
         self.instrument_connection()
         self.instrument_init_config()
 
     def file_config(self,config_file):
-        self.logger.info("File Configuration")
+        print("File Configuration")
         with open(config_file, 'r') as file:
             config = yaml.safe_load(file)
             self.config = config
         current_date=datetime.now()
-        test_date=current_date.strftime("%Y-%m-%d")
+        test_date=current_date.strftime("%Y-%m-%d-%H%M")
         dut=self.config['DUT']['device_name']
         self.folder_path = f'{dut} Power Test {test_date}'
         if not os.path.exists(self.folder_path):
             os.makedirs(self.folder_path)  
 
     def instrument_connection(self):
-        self.logger.info("Instrument Connection")
+        print("Instrument Connection")
         #Oscilloscope connection
         self.oscilloscope = Oscilloscope(self.config['test_instrument']['oscilloscope']['path'])
         #Power Supply connection    
@@ -73,7 +63,7 @@ class PSUTester:
             writer.writerows(data)
 
     def instrument_init_config(self):
-        self.logger.info("Instrument Initializing")
+        print("Instrument Initializing")
         self.load_init_config()
         self.osc_init_config()
         self.dcps_init_config()
@@ -88,11 +78,11 @@ class PSUTester:
         self.load.set_function('c')
 
     def osc_init_config(self):
-        self.oscilloscope.write("*RST")
-        self.oscilloscope.set_y_scale(1,10)
+        self.oscilloscope.write("*RST")  
         self.oscilloscope.add_measurement(1,1, 'MEAN') 
         self.oscilloscope.add_measurement(2,1, 'MEAN') 
-        self.oscilloscope.add_measurement(3,1, 'PK2PK')    
+        self.oscilloscope.add_measurement(3,1, 'PK2PK')  
+        self.oscilloscope.set_y_scale(1,10)
 
     def dcps_init_config(self):
         settings=self.config['testboard']
@@ -100,32 +90,23 @@ class PSUTester:
         self.power_supply.set_value(2,'v',settings['voltage_supply'])
         self.power_supply.set_value(2,'c',settings['current_supply'])
 
-    def test_flow(self):
-        self.logger.info("***Test flow start")
+    def test_flow(self) :
+        print("***Test flow start")
         #input configuration
-        self.logger.info("******Input configuration")
-        settings=self.config['DUT']
-        start=time.time()
+        print("******Input configuration")
+        settings=self.config['DUT']     
         self.input_configuration(settings['input'])
         sequence_checks=[]
         sequence_checks.append([settings['input']['channel'],settings['input']['voltage'],settings['input']['signal']])
-        end=time.time()
-        self.logger.info(f"******input configuration finish")
         for i,settings in settings['output'].items():
-            self.logger.info(f"******unit test on channel {settings['channel']}")
-            start=time.time()
-            self.run_unit_test(settings)
-            end=time.time()
-            self.logger.info(f"******unit test finish {end-start}")
+            print(f"******unit test on channel {settings['channel']}")      
+            self.run_unit_test(settings)         
             if settings['sequence_check']==True:
                 sequence_checks.append([settings['channel'],settings['voltage'],settings['signal']])
         if len(sequence_checks)!=0:
-            self.logger.info("******sequence checks")
-            self.logger.debug(sequence_checks)    
-            start=time.time()
-            self.power_sequence_check(sequence_checks)
-            end=time.time()
-            self.logger.info(f"******sequence checks finish {end-start}")
+            print("******sequence checks")
+            print(sequence_checks)              
+            self.power_sequence_check(sequence_checks)                   
         self.end_test()
 
     def input_configuration(self,input_settings):
@@ -134,6 +115,7 @@ class PSUTester:
         self.oscilloscope.channel_on(input_settings['channel'])
         self.oscilloscope.set_measurement_source(1,input_settings['channel'])
 
+    #Test on per single PSU
     def run_unit_test(self,settings):
         unit_folder_path= f"{self.folder_path}/{settings['signal']}"
         os.makedirs(unit_folder_path)
@@ -148,10 +130,9 @@ class PSUTester:
         sample_points=np.round(sample_points,self.load.get_precision())
         
         '''
-        DC WAVEFORM WITH NO LOAD
+        DC Waveform under no load
         '''
-        self.logger.info("*********get no load dC waveform")
-        start=time.time()
+        print("*********get no load dC waveform")
         plot_title=f'output DC waveform of signal {settings["signal"]} No load'
         w_dc,t_dc,dc_waveform_plot=self.oscilloscope.get_waveform(settings['channel'],plot_title)
         dc_waveform_plot_path=f"{unit_folder_path}/dc_waveform_plot(Vin={self.config['DUT']['input']['voltage']}V,Vout={settings['voltage']}V).png"
@@ -162,44 +143,37 @@ class PSUTester:
             csv_writer = csv.writer(csvfile)
             csv_writer.writerow(['Timestamp(s)', 'Voltage(V)'])
             csv_writer.writerows(data)
-        end=time.time()
-        self.logger.info(f"*********get no load dC waveform finish {end-start}")
 
+        '''
+        Start sampling DC
+        '''
         vo_list, co_list, vi_list, ci_list,vpp_list = [], [], [], [],[]
-        #DC tests
-        self.logger.info("*********sampling DC")
-        start=time.time()
+        print("*********sampling DC")
         for i in range (len(sample_points)):
-            self.logger.info(f"************start point {i}")
-            start=time.time()
+            print(f"************start point {i} current {sample_points[i]}")       
             #Changing load
             self.load.set_mode('C',sample_points[i])
             time.sleep(1.5) #wait for value stablized    
-            output_v=self.oscilloscope.get_measurement(2)
-            #output_v=self.load.get_current_voltage()
+            output_v=self.oscilloscope.get_measurement(2)     
             output_c=self.load.get_current_current()
             vpp=self.oscilloscope.get_measurement(3)
             input_status=self.power_supply.status_inquire()
-            #input_v=input_status.get('ch1_out_voltage')
             input_v=self.oscilloscope.get_measurement(1)
             input_c=input_status.get('ch1_out_current')
-
+            #check validation of data
             if(output_v<1000 and input_v<1000 and input_c!=0):
                 vo_list.append(output_v)
                 co_list.append(output_c)
                 vi_list.append(input_v)
                 ci_list.append(input_c)
-            # Note: for debug
-            self.logger.debug(f"input {input_v}V {input_c}A  output {output_v}V {output_c}A")
-            end=time.time()
-            self.logger.info(f"************point {i}:{end-start}")
-        end=time.time()
-        self.logger.info(f"*********sampling DC{end-start}")
-        #efficiency vs load current
-        self.logger.info("efficiency test")
+            print(f"input {input_v}V {input_c}A  output {output_v}V {output_c}A")
+
+        #Efficiency vs load current
+        print("************Efficiency test")
         vo_array, co_array, vi_array, ci_array = np.array(vo_list), np.array(co_list), np.array(vi_list), np.array(ci_list)
         po_array, pi_array = vo_array * co_array, vi_array * ci_array
         efficiency=po_array/pi_array *100
+
         plt.figure(figsize=(10, 5))
         plt.plot(co_list, efficiency)
         plt.xscale(scale)     
@@ -217,7 +191,7 @@ class PSUTester:
             csv_writer.writerows(data)
 
         #load regulation
-        self.logger.info("load test")
+        print("load test")
         plt.figure(figsize=(10, 5))
         plt.plot(co_list, vo_list)
         plt.grid(True)
@@ -235,43 +209,20 @@ class PSUTester:
             csv_writer.writerow(['Load Current(A)', 'Vout(V)'])
             csv_writer.writerows(data)
 
-
-        #AC tests
+        '''
+        Start sampling AC
+        '''
         self.set_ac_test_mode(settings)
         ripple_folder_path=f"{unit_folder_path}/Ripple(Vin={self.config['DUT']['input']['voltage']}V,Vout={settings['voltage']}V)"
         os.makedirs(ripple_folder_path)
-        
         load_list=[]
-        self.logger.info("*********sampling AC")
-        start=time.time()
-        ###########
-        '''
-        self.load.set_mode('C',sample_points[-1])
-        new_v_scale=self.oscilloscope.nearest_v_scale(self.oscilloscope.get_measurement(3)/2)
-        current_v_scale=self.oscilloscope.get_y_scale(settings['channel'])
-        while (current_v_scale!=new_v_scale):
-            self.oscilloscope.set_y_scale(settings['channel'],new_v_scale)
-            time.sleep(0.1)
-            current_v_scale=new_v_scale
-            new_v_scale=self.oscilloscope.nearest_v_scale(self.oscilloscope.get_measurement(3)/2)       
-        #self.oscilloscope.auto_range_horizontal(settings['channel'])
-        new_t_scale=self.oscilloscope.nearest_t_scale(1/self.oscilloscope.get_frequency(settings['channel']))
-        current_t_scale=self.oscilloscope.get_t_scale()
-        while (current_t_scale!=new_t_scale):
-            self.oscilloscope.set_t_scale(new_t_scale)
-            time.sleep(0.1)
-            current_t_scale=new_t_scale
-            new_t_scale=self.oscilloscope.nearest_t_scale(1/self.oscilloscope.get_frequency(settings['channel']))
-        '''
-        ############
+        print("*********sampling AC")    
         for i in range (len(sample_points)):
-            self.logger.info(f"************sampling point{i} ")
+            print(f"************sampling point {i} ")
             start=time.time()
             #Changing load
             self.load.set_mode('C',sample_points[i])
             time.sleep(1) #wait for value stablized
-            #self.oscilloscope.auto_range_vertical(settings['channel'],'PK2PK')
-            ###
             new_v_scale=self.oscilloscope.nearest_v_scale(self.oscilloscope.get_measurement(3)/2)
             current_v_scale=self.oscilloscope.get_y_scale(settings['channel'])
             while (current_v_scale!=new_v_scale):
@@ -279,24 +230,20 @@ class PSUTester:
                 time.sleep(0.1)
                 current_v_scale=new_v_scale
                 new_v_scale=self.oscilloscope.nearest_v_scale(self.oscilloscope.get_measurement(3)/2)       
-            #self.oscilloscope.auto_range_horizontal(settings['channel'])
             new_t_scale=self.oscilloscope.nearest_t_scale(1/self.oscilloscope.get_frequency(settings['channel']))
             current_t_scale=self.oscilloscope.get_t_scale()
             while (current_t_scale!=new_t_scale):
                 self.oscilloscope.set_t_scale(new_t_scale)
                 time.sleep(0.1)
                 current_t_scale=new_t_scale
-                new_t_scale=self.oscilloscope.nearest_t_scale(1/self.oscilloscope.get_frequency(settings['channel']))
-            ###
-            #output_v=self.oscilloscope.get_measurement(2)
+                new_t_scale=self.oscilloscope.nearest_t_scale(1/self.oscilloscope.get_frequency(settings['channel']))  
             output_c=self.load.get_current_current()
             vpp=self.oscilloscope.get_measurement(3)     
             if vpp<1e3: 
                 vpp_list.append(vpp)
                 load_list.append(output_c)
             
-            #ripple waveform
-           
+            #Ripple waveform    
             plot_title=f"ripple waveform under output {output_c}A,Vpp={vpp}V from {settings['signal']} "
             w_ac,t_ac,wave_ac=self.oscilloscope.get_waveform(settings['channel'],plot_title)
             ripple_waveform_plot_path=f"{ripple_folder_path}/ripple_waveform_plot(load={output_c}A).png"
@@ -307,15 +254,12 @@ class PSUTester:
                 csv_writer = csv.writer(csvfile)
                 csv_writer.writerow(['Timestamp(s)', 'Voltage(V)'])
                 csv_writer.writerows(data)
-
-            # Note: for debug
-            self.logger.debug(f" {output_c}A {vpp}VPP")
+            print(f" {output_c}A {vpp}VPP")
             end=time.time()
-            self.logger.info(f"************sampling point{i} {end-start}")
-        end=time.time()
-        self.logger.info(f"*********sampling AC {end-start}")
-        
+            print(f"************sampling point duration {i} {end-start}")
+   
         #Ripple PKPK
+        print("*********store ripple pkpk vs load plot")   
         plt.figure(figsize=(10, 5))
         plt.plot(co_list, vpp_list)
         plt.grid(True)
@@ -326,13 +270,14 @@ class PSUTester:
         plt.xlabel('I_LOAD (A)')
         ripple_pkpk_plot_path=f"{unit_folder_path}/ripple_pkpk_plot(Vin={self.config['DUT']['input']['voltage']}V,Vout={settings['voltage']}V).png"
         plt.savefig(ripple_pkpk_plot_path)
+        print("********* store ripple pkpk vs load csv") 
         ripple_pkpk_data_path = f"{unit_folder_path}/ripple_pkpk_data(Vin={self.config['DUT']['input']['voltage']}V,Vout={settings['voltage']}V).csv"
         data = zip(load_list, vpp_list)
         with open(ripple_pkpk_data_path, 'w', newline='') as csvfile:
             csv_writer = csv.writer(csvfile)
             csv_writer.writerow(['Load Current(A)', 'Vpp(V)'])
             csv_writer.writerows(data)
-        
+        print("********* store ALL data csv") 
         '''
         All data
         '''
@@ -342,33 +287,18 @@ class PSUTester:
             csv_writer = csv.writer(csvfile)
             csv_writer.writerow(['Input Current(A)', 'Input Voltage(V)','Load Current(A)', 'Output Voltage(V)','Vpp(V)','Load Current(A)','Pk2Pk(V)'])
             csv_writer.writerows(data)
-
         #finish
         self.oscilloscope.channel_off(settings['channel'])
-
-        ''''ALL FILE SAVED'''
-        #EFFICIENCY: efficiency_plot(png), efficiency_data_path(csv)
-        #LOAD REGULATION: load_regulation_plot(png),load_rugulation_data_path(csv)
-        #RIPPLE PKPK: ripple_pkpk_plot(png),ripple_pkpk_data_path(csv)
-        #all(ci,vi,co,vo,vout_pkpk):all_data_path(csv)
-        #DC waveform: dc_waveform_plot(png), dc_waveform_data_path(CSV)
-        #AC(RIPPLE) waveform:  FOLDER-> PLOTS,CSVS
 
     
     def text_to_image(self,text):
         plt.figure()
         plt.text(0.5, 0.5, text, ha='center', va='center', fontsize=20)
-        plt.axis('off')  # 关闭坐标轴
+        plt.axis('off')  
         return plt.gcf()
 
     
-    def power_sequence_check(self,sequence_checks):
-        '''
-        sequence_chekcs[]
-        [channel_in,V_in],
-        [channel_o1,V_o1],
-        ...
-        '''   
+    def power_sequence_check(self,sequence_checks):   
        # self.power_supply.set_value(2,"V",0)
         self.power_supply.set_value(1,'V',0)
         self.power_supply.on()
@@ -408,18 +338,19 @@ class PSUTester:
         while( self.oscilloscope.query("TRIGGER:STATE?") != 'READY'):
             pass
         self.power_supply.set_value(1,'V',sequence_checks[0][1])
-        time.sleep(4)
+        while(self.oscilloscope.query("TRIGGER:STATE?")!='SAV'):
+            pass
         rise_wave_list,rise_ts,rise_plot=self.oscilloscope.get_waveform_all()
         #Generate file
         rise_info='Power up\n'
         for i in range(channel_num):
             m=self.oscilloscope.get_measurement(i+1)
-            #self.logger.debug(f"meas{i+1},{m}")
+            print(f"measurement{i+1}: {m}")
             signal=sequence_checks[i][2]
             rise_info+=f"RISE TIME {signal}: {m}s\n"
         for i in range(channel_num-1):
             m=self.oscilloscope.get_measurement(i+channel_num+1)
-            #self.logger.debug(f"meas{i+channel_num+1},{m}")
+            print(f"measurement{i+channel_num+1}: {m}")
             signal=sequence_checks[i+1][2]
             rise_info+= f"DELAY {signal}: {m}s\n"  
         rise_wave_path=f"{sequence_folder_path}/rise_waveform.csv"
@@ -449,18 +380,21 @@ class PSUTester:
             pass
         #self.power_supply.off()
         self.power_supply.set_value(1,'V',0)
-        time.sleep(4)
+        while(self.oscilloscope.query("TRIGGER:STATE?")!='SAV'):
+            pass
         fall_wave_list,fall_time,fall_plot=self.oscilloscope.get_waveform_all()
+        print(self.oscilloscope.query("TRIGGER:STATE?"))
+       
         #Generate file
         fall_info='Power off \n'
         for i in range(channel_num):
             m=self.oscilloscope.get_measurement(i+1)
-            #self.logger.debug(f"meas{i+1},{m}")
+            print(f"measurement{i+1}: {m}")
             signal=sequence_checks[i][2]
             fall_info+=f"FALL TIME {signal}: {m}s\n"
         for i in range(channel_num-1):
             m=self.oscilloscope.get_measurement(i+channel_num+1)
-            #self.logger.debug(f"meas{i+channel_num+1},{m}")
+            print(f"measurement{i+channel_num+1}:{m}")
             signal=sequence_checks[i+1][2]
             fall_info+= f"DELAY {signal}: {m}s\n"
                
@@ -486,6 +420,7 @@ class PSUTester:
         max_load=max*load_limit
         sample_points=self.generate_points(min_load,max_load,sample_num,scale)
         return sample_points,scale    
+    
     def generate_points(self,start,end,num,scale):
         if scale == 'log':
             return np.logspace(np.log10(start), np.log10(end), num)  
@@ -494,10 +429,8 @@ class PSUTester:
         else:
             return np.linspace(start, end, num)
 
-
     def set_dc_test_mode(self,channel):
-        self.logger.info(f"*********DC test mode for channel {channel}")
-        start=time.time()
+        print(f"*********set DC test mode for channel {channel}")
         self.oscilloscope.set_acquire_mode('SAMple')
         self.oscilloscope.set_t_scale(0.002)
         self.oscilloscope.set_measurement_source(2,channel)
@@ -508,28 +441,24 @@ class PSUTester:
                 self.oscilloscope.set_bandwidth(i+1,'FULl')
                 self.oscilloscope.set_y_scale(i+1,10)
                 time.sleep(1.5)
-                self.oscilloscope.auto_range_vertical(i+1)
-        end=time.time()
-        self.logger.info(f"*********set DC test mode finish {end-start}")
+                self.oscilloscope.auto_range_vertical(i+1)     
+        
     def set_ac_test_mode(self,settings):
-        self.logger.info(f"*********setting ac mode for ch{settings['channel']}")
-        start=time.time()
+        print(f"*********setting ac mode for ch{settings['channel']}")
         self.oscilloscope.set_measurement_source(3,settings['channel'])
         self.oscilloscope.set_coupling(settings['channel'],"AC")
         max_ripple=settings['voltage']*0.2
         init_scale=self.oscilloscope.nearest_v_scale(max_ripple/2)
         self.oscilloscope.set_y_scale(settings['channel'],init_scale)
         self.oscilloscope.set_bandwidth(settings['channel'],'TWEnty')
-        end=time.time()
-        self.logger.info(f"*********set AC test mode finish {end-start}")
 
     def end_test(self):
         self.power_supply.off()
         self.power_supply.close()
         self.load.off()
-        self.load.load.close()
+        self.load.close()
         self.oscilloscope.scope.close()
         self.tb.close()
-        self.logger.info("Test ended")
+        print("Test ended")
 
 # In[ ]:

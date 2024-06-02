@@ -15,6 +15,9 @@ class ElectronicLoad:
         #self.load.write_termination = None
         print(f"{self.get_IDN()} connected")
 
+    def close(self):
+        self.load.close()
+        
     def query(self, command):
         return self.load.query(command)
 

@@ -33,7 +33,7 @@ p.test_flow()
  - dc_waveform_plot(png), dc_waveform_data(csv)
  - Folder "Ripple"
       - ripple_waveform(png),ripple_waveform_data(csv)
-      - xN(N = samle number)
+      - delay, rise time, fall time (txt)
 
 # The configure template  (.yaml)
 ```yaml
@@ -67,6 +67,7 @@ DUT:
     #2:   
     #3:
 testboard:
+  port:
   voltage_supply:  #V
   current_supply:  #A maximum
 ```  

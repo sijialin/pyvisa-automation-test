@@ -1,0 +1,12 @@
+Power up
+RISE TIME board input 24V: 0.0410996s
+RISE TIME output 3V3: 0.0066339s
+RISE TIME output 5V5: 0.0068469s
+DELAY output 3V3: 0.00372s
+DELAY output 5V5: 0.0034667s
+Power off 
+FALL TIME board input 24V: 0.4487992s
+FALL TIME output 3V3: 0.7879984s
+FALL TIME output 5V5: 0.8511984s
+DELAY output 3V3: -0.5078s
+DELAY output 5V5: -0.2404s

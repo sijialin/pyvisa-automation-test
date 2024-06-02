@@ -289,14 +289,6 @@ class PSUTester:
             csv_writer.writerows(data)
         #finish
         self.oscilloscope.channel_off(settings['channel'])
-
-    
-    def text_to_image(self,text):
-        plt.figure()
-        plt.text(0.5, 0.5, text, ha='center', va='center', fontsize=20)
-        plt.axis('off')  
-        return plt.gcf()
-
     
     def power_sequence_check(self,sequence_checks):   
        # self.power_supply.set_value(2,"V",0)
@@ -341,7 +333,10 @@ class PSUTester:
         while(self.oscilloscope.query("TRIGGER:STATE?")!='SAV'):
             pass
         rise_wave_list,rise_ts,rise_plot=self.oscilloscope.get_waveform_all()
+        
         #Generate file
+        rise_plot_path=f"{sequence_folder_path}/rise_plot.png"
+        rise_plot.savefig(rise_plot_path)
         rise_info='Power up\n'
         for i in range(channel_num):
             m=self.oscilloscope.get_measurement(i+1)
@@ -353,6 +348,8 @@ class PSUTester:
             print(f"measurement{i+channel_num+1}: {m}")
             signal=sequence_checks[i+1][2]
             rise_info+= f"DELAY {signal}: {m}s\n"  
+
+
         rise_wave_path=f"{sequence_folder_path}/rise_waveform.csv"
         sequence_info_path=f"{sequence_folder_path}/powersequence.txt"
         data = zip(rise_ts,*[w[3] for w in rise_wave_list])
@@ -386,6 +383,8 @@ class PSUTester:
         print(self.oscilloscope.query("TRIGGER:STATE?"))
        
         #Generate file
+        fall_plot_path=f"{sequence_folder_path}/fall_plot.png"
+        fall_plot.savefig(fall_plot_path)
         fall_info='Power off \n'
         for i in range(channel_num):
             m=self.oscilloscope.get_measurement(i+1)
